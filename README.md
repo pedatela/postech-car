@@ -93,6 +93,8 @@ O workflow `.github/workflows/deploy.yml` executa automaticamente em `push` ou `
 2. Faz login no ECR, gera a imagem Docker e publica com a tag `SHA`.
 3. Executa Terraform (`init`, `fmt`, `validate`, `plan`, `apply`) informando a nova imagem.
 
+Também existe uma execução manual (`workflow_dispatch`) com o input `action=destroy`. Ao rodar esse modo, apenas o job `destroy_infra` é executado, chamando `terraform destroy` para remover todos os recursos (mantendo apenas o state S3/Dynamo). Use essa opção quando quiser derrubar o ambiente e economizar custos.
+
 ### Secrets necessários
 
 Configure os seguintes secrets no repositório:
