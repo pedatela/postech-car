@@ -1,0 +1,47 @@
+import { NextFunction, Response } from 'express';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { URL } from 'node:url';
+import { authConfig } from '../../../config/auth';
+import { AuthenticatedRequest } from '../interfaces/auth.interface';
+
+const jwks = createRemoteJWKSet(
+  new URL(`${authConfig.issuer}/protocol/openid-connect/certs`)
+);
+
+export const authenticate = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const header = req.headers.authorization;
+
+    if (!header?.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Token não informado' });
+    }
+
+    const token = header.substring(7);
+
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: authConfig.issuer,
+      audience: authConfig.audience
+    });
+
+    const realmAccess = payload.realm_access as { roles?: string[] } | undefined;
+    const roles = Array.isArray(realmAccess?.roles) ? realmAccess?.roles ?? [] : [];
+    const email = typeof payload.email === 'string' ? payload.email : undefined;
+
+    req.user = {
+      id: (payload.sub as string) ?? '',
+      roles,
+      ...(email ? { email } : {})
+    };
+
+    return next();
+  } catch (error) {
+    return res.status(401).json({
+      message: 'Token inválido',
+      details: (error as Error).message
+    });
+  }
+};

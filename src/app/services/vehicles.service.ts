@@ -7,6 +7,13 @@ export interface VehicleListFilter {
   status?: VehicleStatusFilter;
 }
 
+export class VehicleAlreadySoldError extends Error {
+  constructor() {
+    super('Veículo já foi vendido');
+    this.name = 'VehicleAlreadySoldError';
+  }
+}
+
 export class VehiclesService {
   constructor(private readonly repository: VehiclesRepository) {}
 
@@ -52,5 +59,22 @@ export class VehiclesService {
 
   async delete(id: string): Promise<Vehicle | null> {
     return this.repository.delete(id);
+  }
+
+  async purchase(id: string, buyerId: string): Promise<Vehicle | null> {
+    const vehicle = await this.repository.findById(id);
+
+    if (!vehicle) {
+      return null;
+    }
+
+    if (vehicle.isSold) {
+      throw new VehicleAlreadySoldError();
+    }
+
+    vehicle.update({ isSold: true, buyerId });
+    await this.repository.update(vehicle);
+
+    return vehicle;
   }
 }

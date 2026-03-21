@@ -6,9 +6,11 @@ import {
 } from "../../../domain/vehicles/entities/vehicle";
 import { createVehiclesService } from "../../factories/vehicles.factory";
 import {
+  VehicleAlreadySoldError,
   VehicleListFilter,
   VehicleStatusFilter,
 } from "../../services/vehicles.service";
+import { authConfig } from "../../../config/auth";
 import {
   ValidationErrorPayload,
   VehicleDTO,
@@ -16,6 +18,7 @@ import {
   VehicleQuery,
   VehiclesListResponse,
 } from "../interfaces/vehicles.interface";
+import { AuthenticatedRequest } from "../interfaces/auth.interface";
 import {
   vehicleCreateSchema,
   VehicleUpdateInput,
@@ -126,4 +129,42 @@ export const deleteVehicle = async (req: Request, res: Response) => {
     message: "Veículo removido com sucesso",
     vehicle: formatVehicle(removed),
   });
+};
+
+export const purchaseVehicle = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  const { id } = req.params as VehicleParams;
+
+  if (!req.user) {
+    return res.status(401).json({ message: "Usuário não autenticado" });
+  }
+
+  const expectedRole = authConfig.requiredRole ?? "buyer";
+
+  if (!req.user.roles.includes(expectedRole)) {
+    return res
+      .status(403)
+      .json({ message: "Usuário não autorizado para compra" });
+  }
+
+  try {
+    const vehicle = await vehiclesService.purchase(id, req.user.id);
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Veículo não encontrado" });
+    }
+
+    return res.json({
+      message: "Veículo comprado com sucesso",
+      vehicle: formatVehicle(vehicle),
+    });
+  } catch (error) {
+    if (error instanceof VehicleAlreadySoldError) {
+      return res.status(409).json({ message: error.message });
+    }
+
+    throw error;
+  }
 };

@@ -7,6 +7,7 @@ export type VehicleAttributes = {
   color: string;
   price: number;
   isSold: boolean;
+  buyerId?: string | null;
 };
 
 export class Vehicle {
@@ -16,7 +17,11 @@ export class Vehicle {
   ) {}
 
   static create(attrs: VehicleAttributes, id: string = randomUUID()): Vehicle {
-    const props: VehicleAttributes = { ...attrs, isSold: attrs.isSold ?? false };
+    const props: VehicleAttributes = {
+      ...attrs,
+      isSold: attrs.isSold ?? false,
+      buyerId: attrs.buyerId ?? null
+    };
     return new Vehicle(id, props);
   }
 
@@ -48,6 +53,10 @@ export class Vehicle {
     return this.props.isSold;
   }
 
+  get buyerId(): string | null | undefined {
+    return this.props.buyerId;
+  }
+
   update(attrs: Partial<VehicleAttributes>): void {
     const sanitized = Object.fromEntries(
       Object.entries(attrs).filter(([, value]) => value !== undefined)
@@ -64,7 +73,8 @@ export class Vehicle {
       year: this.year,
       color: this.color,
       price: this.price,
-      isSold: this.isSold
+      isSold: this.isSold,
+      buyerId: this.buyerId ?? null
     };
   }
 }
