@@ -231,11 +231,11 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "app" {
-  name            = "${var.project_name}-service"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  name                               = "${var.project_name}-service"
+  cluster                            = aws_ecs_cluster.this.id
+  task_definition                    = aws_ecs_task_definition.app.arn
+  desired_count                      = var.desired_count
+  launch_type                        = "FARGATE"
   deployment_minimum_healthy_percent = 50
   deployment_maximum_percent         = 200
 
