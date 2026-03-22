@@ -55,55 +55,32 @@ A aplicação segue uma separação simples em camadas:
 
 ## Infraestrutura (Terraform + ECS)
 
-O diretório `terraform/` contém os manifestos necessários para levantar a infraestrutura em AWS:
+A infraestrutura oficial (VPC, ECR, ECS, RDS/Keycloak etc.) vive em um repositório dedicado: `postech-car-infra`. Lá estão todos os manifests Terraform, pipeline de plan/apply e o estado remoto compartilhado. Este repositório contém apenas o código da aplicação; não há mais arquivos Terraform locais.
 
-- VPC pública simples com duas subnets, Internet Gateway e regramento mínimo.
-- Repositório ECR para armazenar as imagens do serviço.
-- Cluster ECS Fargate com uma service/Task Definition (`256 CPU / 512 MB`), apontando para o container exposto na porta 3000.
-- Log Group do CloudWatch e Load Balancer (ALB) servindo o tráfego HTTP público.
+Para alterar ou aplicar infraestrutura:
 
-### Pré-requisitos
-
-- AWS CLI autenticado.
-- Terraform >= 1.5.
-- Conta AWS preparada para criar os recursos (VPC, ECS, IAM, etc.).
-
-### Comandos úteis
-
-```bash
-cd terraform
-terraform init \
-  -backend-config="bucket=<nome-do-bucket>" \
-  -backend-config="key=<prefixo>/terraform.tfstate" \
-  -backend-config="region=<aws-region>" \
-  -backend-config="dynamodb_table=<tabela-lock>"
-terraform plan -var container_image=<aws_account>.dkr.ecr.<region>.amazonaws.com/postech-car:<tag>
-terraform apply -var container_image=<...>
-```
-
-A configuração do backend (`terraform/providers.tf`) espera um bucket S3 e uma tabela DynamoDB para controlar o state/lock; defina-os via `-backend-config` ou crie um arquivo `.tfbackend`.
-
-A variável `container_image` deve apontar para a imagem armazenada no ECR (o workflow do GitHub Actions preenche automaticamente quando roda o deploy).
+1. Trabalhe no repositório `postech-car-infra` (branch/PR).
+2. Use o workflow de Terraform daquele projeto ou rode `terraform plan/apply` por lá.
+3. Volte para este repo apenas para evoluir o código da API e publicar novas imagens Docker.
 
 ## GitHub Actions
 
-O workflow `.github/workflows/deploy.yml` executa automaticamente em `push` ou `pull_request` para `main`:
+O workflow `.github/workflows/deploy.yml` roda automaticamente para `push`, `pull_request` e `workflow_dispatch`:
 
-1. Instala dependências, roda `npm run lint` e `npm test`.
-2. Faz login no ECR, gera a imagem Docker e publica com a tag `SHA`.
-3. Executa Terraform (`init`, `fmt`, `validate`, `plan`, `apply`) informando a nova imagem.
+1. Instala dependências, executa `npm run lint` e `npm test`.
+2. Constrói a imagem Docker, publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/postech-car` com as tags `SHA` e `latest`.
+3. Força um novo deploy no serviço ECS existente (cluster/serviço informados via variáveis do repositório), aguardando estabilização.
 
-Também existe uma execução manual (`workflow_dispatch`) com o input `action=destroy`. Ao rodar esse modo, apenas o job `destroy_infra` é executado, chamando `terraform destroy` para remover todos os recursos (mantendo apenas o state S3/Dynamo). Use essa opção quando quiser derrubar o ambiente e economizar custos.
+Como a infraestrutura agora vive no repositório `postech-car-infra`, nenhum passo de Terraform é executado aqui. Ajustes em VPC/ECS/Keycloak devem ser realizados lá; este pipeline apenas entrega novas imagens para o serviço já provisionado.
 
-### Secrets necessários
+### Secrets e variáveis necessários
 
-Configure os seguintes secrets no repositório:
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: credenciais com permissão para ECR e ECS (a conta deve coincidir com a que rodou o Terraform da infra).
+- `AWS_ACCOUNT_ID`: usado para montar a URL do ECR.
+- `ECS_CLUSTER_NAME` (variável de repositório): nome do cluster criado pelo Terraform (ex. `postech-car-app-cluster`).
+- `ECS_SERVICE_NAME` (variável de repositório): serviço ECS da aplicação (ex. `postech-car-app-svc`).
 
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: credenciais com permissão para ECR, ECS, IAM e VPC.
-- `AWS_ACCOUNT_ID`: conta usada para montar a URL do ECR.
-- `TF_STATE_BUCKET`, `TF_STATE_KEY`, `TF_STATE_DYNAMODB_TABLE`: backend remoto usado pelo Terraform (crie o bucket/Dynamo previamente).
-
-Opcionalmente ajuste `AWS_REGION`, `ECR_REPOSITORY` e `TF_WORKING_DIR` nas variáveis do workflow.
+Se quiser alterar o nome do repositório ECR ou região padrão, edite `env.ECR_REPOSITORY`/`env.AWS_REGION` no workflow.
 
 ### Rotas de veículos
 
