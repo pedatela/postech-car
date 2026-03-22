@@ -4,9 +4,15 @@ import { URL } from 'node:url';
 import { authConfig } from '../../../config/auth';
 import { AuthenticatedRequest } from '../interfaces/auth.interface';
 
-const jwks = createRemoteJWKSet(
-  new URL(`${authConfig.issuer}/protocol/openid-connect/certs`)
-);
+if (!authConfig.issuer) {
+  throw new Error('Auth issuer not configured');
+}
+
+const issuerBase = authConfig.issuer.replace(/\/$/, '');
+const jwksPath = issuerBase.includes('cognito-idp.')
+  ? '/.well-known/jwks.json'
+  : '/protocol/openid-connect/certs';
+const jwks = createRemoteJWKSet(new URL(`${issuerBase}${jwksPath}`));
 
 export const authenticate = async (
   req: AuthenticatedRequest,
@@ -28,7 +34,12 @@ export const authenticate = async (
     });
 
     const realmAccess = payload.realm_access as { roles?: string[] } | undefined;
-    const roles = Array.isArray(realmAccess?.roles) ? realmAccess?.roles ?? [] : [];
+    const keycloakRoles = Array.isArray(realmAccess?.roles) ? realmAccess.roles ?? [] : [];
+    const groupsClaim = payload['cognito:groups'];
+    const cognitoGroups = Array.isArray(groupsClaim)
+      ? groupsClaim.filter((group): group is string => typeof group === 'string')
+      : [];
+    const roles = Array.from(new Set([...keycloakRoles, ...cognitoGroups]));
     const email = typeof payload.email === 'string' ? payload.email : undefined;
 
     req.user = {

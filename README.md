@@ -55,7 +55,7 @@ A aplicação segue uma separação simples em camadas:
 
 ## Infraestrutura (Terraform + ECS)
 
-A infraestrutura oficial (VPC, ECR, ECS, RDS/Keycloak etc.) vive em um repositório dedicado: `postech-car-infra`. Lá estão todos os manifests Terraform, pipeline de plan/apply e o estado remoto compartilhado. Este repositório contém apenas o código da aplicação; não há mais arquivos Terraform locais.
+A infraestrutura oficial (VPC, ECR, ECS, bancos e integrações auxiliares como Cognito) vive em um repositório dedicado: `postech-car-infra`. Lá estão todos os manifests Terraform, pipeline de plan/apply e o estado remoto compartilhado. Este repositório contém apenas o código da aplicação; não há mais arquivos Terraform locais.
 
 Para alterar ou aplicar infraestrutura:
 
@@ -68,10 +68,10 @@ Para alterar ou aplicar infraestrutura:
 O workflow `.github/workflows/deploy.yml` roda automaticamente para `push`, `pull_request` e `workflow_dispatch`:
 
 1. Instala dependências, executa `npm run lint` e `npm test`.
-2. Constrói a imagem Docker, publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/postech-car` com as tags `SHA` e `latest`.
+2. Constrói a imagem Docker, publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${ECR_REPOSITORY}` com as tags `SHA` e `latest`.
 3. Força um novo deploy no serviço ECS existente (cluster/serviço informados via variáveis do repositório), aguardando estabilização.
 
-Como a infraestrutura agora vive no repositório `postech-car-infra`, nenhum passo de Terraform é executado aqui. Ajustes em VPC/ECS/Keycloak devem ser realizados lá; este pipeline apenas entrega novas imagens para o serviço já provisionado.
+Como a infraestrutura agora vive no repositório `postech-car-infra`, nenhum passo de Terraform é executado aqui. Ajustes em VPC/ECS/Cognito devem ser realizados lá; este pipeline apenas entrega novas imagens para o serviço já provisionado.
 
 ### Secrets e variáveis necessários
 
@@ -88,34 +88,31 @@ Se quiser alterar o nome do repositório ECR ou região padrão, edite `env.ECR_
 - `GET /api/vehicles/:id` busca um veículo específico.
 - `POST /api/vehicles` cadastra um novo veículo (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`).
 - `PUT /api/vehicles/:id` atualiza dados de um veículo existente.
-- `POST /api/vehicles/:id/purchase` realiza a compra de um veículo. Exige token JWT emitido pelo Keycloak com a role `buyer`.
+- `POST /api/vehicles/:id/purchase` realiza a compra de um veículo. Exige token JWT emitido pelo Amazon Cognito com o grupo/role `buyer`.
 - `DELETE /api/vehicles/:id` remove um veículo.
 
 Os dados ficam em memória durante a execução para fins de demonstração.
 
-## Autenticação com Keycloak (desenvolvimento local)
+## Autenticação com AWS Cognito
 
-Para desenvolver o fluxo de compra/autorização localmente, foi adicionado um `docker-compose.yml` com uma instância do Keycloak:
+A API valida tokens emitidos por um User Pool do Amazon Cognito. Fluxo sugerido:
 
-```bash
-docker compose up keycloak -d
-```
-
-As credenciais padrão são `admin/admin`. Depois que o container estiver no ar:
-
-1. Acesse `http://localhost:8080`.
-2. Crie um realm chamado `postech-car`.
-3. Crie o client `postech-car-api` (confidential ou public), habilite o fluxo desejado e copie o `Client ID` para usar como audiência (`KEYCLOAK_AUDIENCE`).
-4. Crie a role `buyer` e associe aos usuários que podem efetuar compras.
+1. No console da AWS, crie um User Pool (ex.: `postech-car`) com o Hosted UI habilitado ou utilize o CLI para autenticação.
+2. Crie um App Client sem `client secret` (ex.: `postech-car-api`) e habilite o fluxo `USER_PASSWORD_AUTH` ou o Hosted UI.
+3. Crie um grupo chamado `buyer` e associe os usuários autorizados a efetuar compras.
+4. Gere tokens de acesso/ID via Hosted UI ou pelo comando `aws cognito-idp initiate-auth`, utilizando o usuário cadastrado.
 
 ### Variáveis de ambiente da API
 
-Defina um `.env` (ou exporte no shell) com:
+Configure um `.env` com os dados do User Pool:
 
 ```env
-KEYCLOAK_ISSUER=http://localhost:8080/realms/postech-car
-KEYCLOAK_AUDIENCE=postech-car-api
-KEYCLOAK_REQUIRED_ROLE=buyer
+COGNITO_REGION=us-east-1
+COGNITO_USER_POOL_ID=us-east-1_abc123DEF
+COGNITO_CLIENT_ID=4h1exampleappclient
+AUTH_REQUIRED_ROLE=buyer
+# Opcional: sobrescreve o issuer, caso prefira informar diretamente
+# COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123DEF
 ```
 
-Em produção, esses valores devem apontar para o Keycloak hospedado em outro stack/conta. O middleware `authenticate` valida o JWT, popula `req.user` e o endpoint `POST /api/vehicles/:id/purchase` verifica a role antes de efetivar a compra (marcando o veículo como `isSold=true` e amarrando o `buyerId`).
+O middleware `authenticate` usa essas informações para buscar as chaves públicas (`/.well-known/jwks.json`), validar o JWT e carregar `req.user`. O endpoint `POST /api/vehicles/:id/purchase` exige que o token traga o grupo `buyer` em `cognito:groups` antes de marcar o veículo como vendido.

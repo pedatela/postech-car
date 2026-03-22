@@ -1,11 +1,27 @@
 const {
-  KEYCLOAK_ISSUER = 'http://localhost:8080/realms/postech-car',
-  KEYCLOAK_AUDIENCE = 'account',
-  KEYCLOAK_REQUIRED_ROLE = 'buyer'
+  COGNITO_REGION = "us-east-1",
+  COGNITO_USER_POOL_ID = "us-east-1_dymlpmCdd",
+  COGNITO_CLIENT_ID = "193omfidp7neg18vlf6fq8ve5l",
+  COGNITO_ISSUER,
+  AUTH_REQUIRED_ROLE = "buyer",
 } = process.env;
 
+console.info("[authConfig] Loaded envs", {
+  COGNITO_REGION,
+  COGNITO_USER_POOL_ID,
+  COGNITO_CLIENT_ID,
+  AUTH_REQUIRED_ROLE,
+  COGNITO_ISSUER_OVERRIDE: COGNITO_ISSUER ? "provided" : "derived",
+});
+
+const derivedIssuer =
+  COGNITO_ISSUER ||
+  (COGNITO_REGION && COGNITO_USER_POOL_ID
+    ? `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}`
+    : "");
+
 export const authConfig = {
-  issuer: KEYCLOAK_ISSUER,
-  audience: KEYCLOAK_AUDIENCE,
-  requiredRole: KEYCLOAK_REQUIRED_ROLE
+  issuer: derivedIssuer,
+  audience: COGNITO_CLIENT_ID,
+  requiredRole: AUTH_REQUIRED_ROLE,
 };
