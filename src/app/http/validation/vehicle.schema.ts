@@ -17,6 +17,11 @@ export const vehicleCreateSchema = z.object({
   isSold: booleanField("isSold"),
 });
 
+export const vehicleCreatePayloadSchema = z.union([
+  vehicleCreateSchema,
+  z.array(vehicleCreateSchema).min(1, "Envie ao menos um veículo para cadastro"),
+]);
+
 export const vehicleUpdateSchema = vehicleCreateSchema.partial().refine(
   (payload) => Object.keys(payload).length > 0,
   {
@@ -25,4 +30,5 @@ export const vehicleUpdateSchema = vehicleCreateSchema.partial().refine(
 );
 
 export type VehicleCreateInput = z.infer<typeof vehicleCreateSchema>;
+export type VehicleCreatePayload = z.infer<typeof vehicleCreatePayloadSchema>;
 export type VehicleUpdateInput = z.infer<typeof vehicleUpdateSchema>;

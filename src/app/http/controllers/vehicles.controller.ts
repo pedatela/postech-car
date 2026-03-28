@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { treeifyError, ZodError } from "zod";
+import { authConfig } from "../../../config/auth";
 import {
   Vehicle,
   VehicleAttributes,
@@ -10,7 +11,7 @@ import {
   VehicleListFilter,
   VehicleStatusFilter,
 } from "../../services/vehicles.service";
-import { authConfig } from "../../../config/auth";
+import { AuthenticatedRequest } from "../interfaces/auth.interface";
 import {
   ValidationErrorPayload,
   VehicleDTO,
@@ -18,9 +19,8 @@ import {
   VehicleQuery,
   VehiclesListResponse,
 } from "../interfaces/vehicles.interface";
-import { AuthenticatedRequest } from "../interfaces/auth.interface";
 import {
-  vehicleCreateSchema,
+  vehicleCreatePayloadSchema,
   VehicleUpdateInput,
   vehicleUpdateSchema,
 } from "../validation/vehicle.schema";
@@ -37,7 +37,7 @@ const formatValidationError = (error: ZodError): ValidationErrorPayload => ({
 
 const sanitizeUpdatePayload = (payload: VehicleUpdateInput) =>
   Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
+    Object.entries(payload).filter(([, value]) => value !== undefined),
   ) as Partial<VehicleAttributes>;
 
 const parseStatusFilter = (status?: string) => {
@@ -54,7 +54,7 @@ const parseStatusFilter = (status?: string) => {
 export const listVehicles = async (req: Request, res: Response) => {
   const { status } = req.query as VehicleQuery;
   const filterStatus = parseStatusFilter(
-    typeof status === "string" ? status : undefined
+    typeof status === "string" ? status : undefined,
   );
 
   if (filterStatus === null) {
@@ -88,13 +88,25 @@ export const getVehicle = async (req: Request, res: Response) => {
 };
 
 export const createVehicle = async (req: Request, res: Response) => {
-  const result = vehicleCreateSchema.safeParse(req.body ?? {});
+  const result = vehicleCreatePayloadSchema.safeParse(req.body ?? {});
 
   if (!result.success) {
     return res.status(400).json(formatValidationError(result.error));
   }
 
-  const vehicle = await vehiclesService.create(result.data);
+  const payload = result.data;
+
+  if (Array.isArray(payload)) {
+    const created = await vehiclesService.createMany(payload);
+
+    return res.status(201).json({
+      message: "Veículos criados com sucesso",
+      total: created.length,
+      data: created.map((vehicle) => formatVehicle(vehicle)),
+    });
+  }
+
+  const vehicle = await vehiclesService.create(payload);
 
   return res.status(201).json(formatVehicle(vehicle));
 };
@@ -133,7 +145,7 @@ export const deleteVehicle = async (req: Request, res: Response) => {
 
 export const purchaseVehicle = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) => {
   const { id } = req.params as VehicleParams;
 

@@ -17,7 +17,9 @@ npm install
 
 - `npm run dev`: executa o projeto em modo desenvolvimento usando `ts-node-dev`.
 - `npm run lint`: roda o TypeScript em modo `noEmit`, útil como verificação estática simples.
-- `npm test`: executa o build (placeholder até adicionarmos testes formais).
+- `npm test`: executa a suíte de testes unitários com [Vitest](https://vitest.dev/) no modo CI.
+- `npm run test:watch`: executa os testes em modo interativo/watch.
+- `npm run test:coverage`: roda os testes e gera o relatório de cobertura (salvo em `coverage/`).
 - `npm run build`: compila os arquivos TypeScript para `dist/`.
 - `npm start`: executa o JavaScript gerado após a compilação.
 
@@ -67,7 +69,7 @@ Para alterar ou aplicar infraestrutura:
 
 O workflow `.github/workflows/deploy.yml` roda automaticamente para `push`, `pull_request` e `workflow_dispatch`:
 
-1. Instala dependências, executa `npm run lint` e `npm test`.
+1. Instala dependências, executa `npm run lint` e `npm run test:coverage`.
 2. Constrói a imagem Docker, publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${ECR_REPOSITORY}` com as tags `SHA` e `latest`.
 3. Força um novo deploy no serviço ECS existente (cluster/serviço informados via variáveis do repositório), aguardando estabilização.
 
@@ -86,7 +88,7 @@ Se quiser alterar o nome do repositório ECR ou região padrão, edite `env.ECR_
 
 - `GET /api/vehicles` lista todos os veículos cadastrados. Aceita o query param `status=available|sold` para filtrar e ordenar (por preço ascendente) apenas os veículos à venda ou vendidos.
 - `GET /api/vehicles/:id` busca um veículo específico.
-- `POST /api/vehicles` cadastra um novo veículo (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`).
+- `POST /api/vehicles` cadastra um ou mais veículos (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`). É possível enviar um único objeto ou um array de objetos para criação em lote.
 - `PUT /api/vehicles/:id` atualiza dados de um veículo existente.
 - `POST /api/vehicles/:id/purchase` realiza a compra de um veículo. Exige token JWT emitido pelo Amazon Cognito com o grupo/role `buyer`.
 - `DELETE /api/vehicles/:id` remove um veículo.
