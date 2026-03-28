@@ -4,6 +4,7 @@ const {
   COGNITO_CLIENT_ID = "193omfidp7neg18vlf6fq8ve5l",
   COGNITO_ISSUER,
   AUTH_REQUIRED_ROLE = "buyer",
+  AUTH_SELLER_ROLE = "seller",
 } = process.env;
 
 console.info("[authConfig] Loaded envs", {
@@ -11,6 +12,7 @@ console.info("[authConfig] Loaded envs", {
   COGNITO_USER_POOL_ID,
   COGNITO_CLIENT_ID,
   AUTH_REQUIRED_ROLE,
+  AUTH_SELLER_ROLE,
   COGNITO_ISSUER_OVERRIDE: COGNITO_ISSUER ? "provided" : "derived",
 });
 
@@ -24,4 +26,5 @@ export const authConfig = {
   issuer: derivedIssuer,
   audience: COGNITO_CLIENT_ID,
   requiredRole: AUTH_REQUIRED_ROLE,
+  sellerRole: AUTH_SELLER_ROLE,
 };

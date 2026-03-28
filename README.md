@@ -88,10 +88,27 @@ Se quiser alterar o nome do repositório ECR ou região padrão, edite `env.ECR_
 
 - `GET /api/vehicles` lista todos os veículos cadastrados. Aceita o query param `status=available|sold` para filtrar e ordenar (por preço ascendente) apenas os veículos à venda ou vendidos.
 - `GET /api/vehicles/:id` busca um veículo específico.
-- `POST /api/vehicles` cadastra um ou mais veículos (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`). É possível enviar um único objeto ou um array de objetos para criação em lote.
-- `PUT /api/vehicles/:id` atualiza dados de um veículo existente.
-- `POST /api/vehicles/:id/purchase` realiza a compra de um veículo. Exige token JWT emitido pelo Amazon Cognito com o grupo/role `buyer`.
-- `DELETE /api/vehicles/:id` remove um veículo.
+- `POST /api/vehicles` cadastra um ou mais veículos (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`). É possível enviar um único objeto ou um array de objetos para criação em lote. **Requer autenticação** e que o usuário pertença ao grupo/role definido em `AUTH_SELLER_ROLE` (padrão `seller`).
+- `PUT /api/vehicles/:id` atualiza dados de um veículo existente. **Requer role de seller.**
+- `POST /api/vehicles/:id/purchase` realiza a compra de um veículo. Exige token JWT emitido pelo Amazon Cognito com o grupo/role `buyer` e retorna os dados do comprador (nome/e-mail) junto ao veículo atualizado.
+- `DELETE /api/vehicles/:id` remove um veículo. **Requer role de seller.**
+
+### Exemplo de payload em lote
+
+```json
+[
+  { "brand": "Tesla", "model": "Model 3", "year": 2024, "color": "Azul", "price": 289000, "isSold": false },
+  { "brand": "Ford", "model": "Mustang Mach-E", "year": 2023, "color": "Vermelho", "price": 315000, "isSold": false },
+  { "brand": "Chevrolet", "model": "Bolt EUV", "year": 2022, "color": "Branco", "price": 198000, "isSold": false },
+  { "brand": "Volkswagen", "model": "ID.4", "year": 2024, "color": "Preto", "price": 255000, "isSold": false },
+  { "brand": "BMW", "model": "i4 eDrive40", "year": 2023, "color": "Cinza", "price": 379000, "isSold": false },
+  { "brand": "Audi", "model": "Q4 e-tron", "year": 2024, "color": "Azul Marinho", "price": 365000, "isSold": false },
+  { "brand": "Volvo", "model": "C40 Recharge", "year": 2023, "color": "Branco Gelo", "price": 342000, "isSold": false },
+  { "brand": "Hyundai", "model": "Ioniq 5", "year": 2024, "color": "Prata", "price": 268000, "isSold": false },
+  { "brand": "Kia", "model": "EV6 GT-Line", "year": 2023, "color": "Verde Escuro", "price": 295000, "isSold": false },
+  { "brand": "Porsche", "model": "Taycan 4S", "year": 2024, "color": "Preto Carbon", "price": 695000, "isSold": false }
+]
+```
 
 Os dados ficam em memória durante a execução para fins de demonstração.
 
@@ -101,7 +118,7 @@ A API valida tokens emitidos por um User Pool do Amazon Cognito. Fluxo sugerido:
 
 1. No console da AWS, crie um User Pool (ex.: `postech-car`) com o Hosted UI habilitado ou utilize o CLI para autenticação.
 2. Crie um App Client sem `client secret` (ex.: `postech-car-api`) e habilite o fluxo `USER_PASSWORD_AUTH` ou o Hosted UI.
-3. Crie um grupo chamado `buyer` e associe os usuários autorizados a efetuar compras.
+3. Crie grupos chamados `buyer` (para compradores) e `seller` (para quem pode cadastrar/editar veículos) e associe os usuários apropriados.
 4. Gere tokens de acesso/ID via Hosted UI ou pelo comando `aws cognito-idp initiate-auth`, utilizando o usuário cadastrado.
 
 ### Variáveis de ambiente da API
@@ -113,6 +130,7 @@ COGNITO_REGION=us-east-1
 COGNITO_USER_POOL_ID=us-east-1_abc123DEF
 COGNITO_CLIENT_ID=4h1exampleappclient
 AUTH_REQUIRED_ROLE=buyer
+AUTH_SELLER_ROLE=seller
 # Opcional: sobrescreve o issuer, caso prefira informar diretamente
 # COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123DEF
 ```

@@ -161,6 +161,13 @@ export const purchaseVehicle = async (
       .json({ message: "Usuário não autorizado para compra" });
   }
 
+  const buyerName = req.user.name ?? req.user.email ?? req.user.id;
+  const buyer = {
+    id: req.user.id,
+    name: buyerName,
+    email: req.user.email ?? null,
+  };
+
   try {
     const vehicle = await vehiclesService.purchase(id, req.user.id);
 
@@ -170,6 +177,7 @@ export const purchaseVehicle = async (
 
     return res.json({
       message: "Veículo comprado com sucesso",
+      buyer,
       vehicle: formatVehicle(vehicle),
     });
   } catch (error) {

@@ -34,18 +34,20 @@ export const authenticate = async (
     });
 
     const realmAccess = payload.realm_access as { roles?: string[] } | undefined;
-    const keycloakRoles = Array.isArray(realmAccess?.roles) ? realmAccess.roles ?? [] : [];
+    const realmRoles = Array.isArray(realmAccess?.roles) ? realmAccess.roles ?? [] : [];
     const groupsClaim = payload['cognito:groups'];
     const cognitoGroups = Array.isArray(groupsClaim)
       ? groupsClaim.filter((group): group is string => typeof group === 'string')
       : [];
-    const roles = Array.from(new Set([...keycloakRoles, ...cognitoGroups]));
+    const roles = Array.from(new Set([...realmRoles, ...cognitoGroups]));
     const email = typeof payload.email === 'string' ? payload.email : undefined;
+    const name = typeof payload.name === 'string' ? payload.name : undefined;
 
     req.user = {
       id: (payload.sub as string) ?? '',
       roles,
-      ...(email ? { email } : {})
+      ...(email ? { email } : {}),
+      ...(name ? { name } : {})
     };
 
     return next();
