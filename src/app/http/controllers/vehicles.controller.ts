@@ -27,8 +27,20 @@ import {
 
 const vehiclesService = createVehiclesService();
 
-const formatVehicle = (vehicle: Vehicle): VehicleDTO =>
-  vehicle.toJSON() as VehicleDTO;
+const formatVehicle = (vehicle: Vehicle): VehicleDTO => {
+  const payload = vehicle.toJSON() as VehicleAttributes & { id: string };
+  const buyer =
+    payload.isSold && payload.buyerId
+      ? {
+          id: payload.buyerId,
+        }
+      : null;
+
+  return {
+    ...payload,
+    buyer,
+  };
+};
 
 const formatValidationError = (error: ZodError): ValidationErrorPayload => ({
   message: "Payload inválido",

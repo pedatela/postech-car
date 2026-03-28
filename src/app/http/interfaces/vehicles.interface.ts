@@ -12,7 +12,14 @@ export interface VehicleQuery extends ParsedQs {
   status?: VehicleStatusFilter;
 }
 
-export type VehicleDTO = VehicleAttributes & { id: string };
+export type VehicleBuyerDTO = {
+  id: string;
+};
+
+export type VehicleDTO = VehicleAttributes & {
+  id: string;
+  buyer: VehicleBuyerDTO | null;
+};
 
 export interface VehiclesListResponse {
   total: number;

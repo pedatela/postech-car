@@ -69,9 +69,10 @@ Para alterar ou aplicar infraestrutura:
 
 O workflow `.github/workflows/deploy.yml` roda automaticamente para `push`, `pull_request` e `workflow_dispatch`:
 
-1. Instala dependências, executa `npm run lint` e `npm run test:coverage`.
-2. Constrói a imagem Docker, publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${ECR_REPOSITORY}` com as tags `SHA` e `latest`.
-3. Força um novo deploy no serviço ECS existente (cluster/serviço informados via variáveis do repositório), aguardando estabilização.
+1. O job `lint` instala dependências e executa `npm run lint`.
+2. O job `test` (dependente do lint) roda `npm run test:coverage`.
+3. O job `build_and_push` constrói a imagem Docker e publica em `$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${ECR_REPOSITORY}` com as tags `SHA` e `latest`.
+4. Por fim, `deploy_service` força um novo deploy no serviço ECS informado (variáveis do repositório) e aguarda estabilização.
 
 Como a infraestrutura agora vive no repositório `postech-car-infra`, nenhum passo de Terraform é executado aqui. Ajustes em VPC/ECS/Cognito devem ser realizados lá; este pipeline apenas entrega novas imagens para o serviço já provisionado.
 
@@ -86,7 +87,7 @@ Se quiser alterar o nome do repositório ECR ou região padrão, edite `env.ECR_
 
 ### Rotas de veículos
 
-- `GET /api/vehicles` lista todos os veículos cadastrados. Aceita o query param `status=available|sold` para filtrar e ordenar (por preço ascendente) apenas os veículos à venda ou vendidos.
+- `GET /api/vehicles` lista todos os veículos cadastrados. Aceita o query param `status=available|sold` para filtrar e ordenar (por preço ascendente) apenas os veículos à venda ou vendidos. Cada item retorna `buyer` com o ID do comprador (quando o veículo estiver vendido).
 - `GET /api/vehicles/:id` busca um veículo específico.
 - `POST /api/vehicles` cadastra um ou mais veículos (`brand`, `model`, `year`, `color`, `price`, `isSold` - padrão `false`). É possível enviar um único objeto ou um array de objetos para criação em lote. **Requer autenticação** e que o usuário pertença ao grupo/role definido em `AUTH_SELLER_ROLE` (padrão `seller`).
 - `PUT /api/vehicles/:id` atualiza dados de um veículo existente. **Requer role de seller.**

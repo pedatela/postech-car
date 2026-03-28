@@ -15,7 +15,7 @@ env:
   ECS_SERVICE: ${{ vars.ECS_SERVICE_NAME }}
 
 jobs:
-  lint_test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,11 +27,23 @@ jobs:
         run: npm install
       - name: Lint
         run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install
       - name: Run unit tests
         run: npm run test:coverage
 
   build_and_push:
-    needs: lint_test
+    needs: test
     runs-on: ubuntu-latest
     env:
       IMAGE_TAG: ${{ github.sha }}
